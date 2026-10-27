@@ -1,0 +1,411 @@
+{
+  "name": "LinkedIn Post Approval",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "LinkedIn Post Generator",
+        "formDescription": "Enter a topic. AI will draft and review a LinkedIn post, then email it to you for approval.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Topic",
+              "fieldType": "textarea",
+              "placeholder": "e.g. Lessons from building white-label Roku apps",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "respondWithOptions": {
+            "values": {
+              "formSubmittedText": "Thanks! Your draft is being written. Check your Gmail for the approval email."
+            }
+          }
+        }
+      },
+      "id": "n1",
+      "name": "LinkedIn Topic Form",
+      "webhookId": "d3013a50-12ed-4024-add1-f2d30b736db7",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write a LinkedIn post on this topic:\n\n{{ $json.Topic }}",
+        "options": {
+          "systemMessage": "You are an experienced LinkedIn ghostwriter for a technology professional (Tech Lead in OTT/streaming and AI).\nWrite ONE first-draft LinkedIn post on the given topic.\nGuidelines:\n- Start with a strong one-line hook.\n- 150-250 words, short paragraphs (1-3 lines each), plain text (no markdown, no bold, no headings).\n- Share a concrete insight, example or lesson; first person, conversational, professional.\n- End with a question or call to action that invites comments.\n- Add 3-5 relevant hashtags on the last line.\nReturn only the post text, nothing else."
+        }
+      },
+      "id": "n2",
+      "name": "Writer Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        272,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "cachedResultName": "gpt-4.1-mini",
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0.8
+        }
+      },
+      "id": "n3",
+      "name": "OpenAI Model (Writer)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        272,
+        528
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "PFhRAf83T64rj58y",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Topic: {{ $('LinkedIn Topic Form').item.json.Topic }}\n\nDraft post to review and improve:\n---\n{{ $json.output }}\n---",
+        "options": {
+          "systemMessage": "You are a strict LinkedIn content editor. You receive a draft post and must return the IMPROVED, ready-to-publish version (not feedback).\nJudge and fix the draft against these standards:\n1. Hook: the first line must make a reader stop scrolling; rewrite it if weak or generic.\n2. Relevance: stays on the given topic and delivers one clear, concrete takeaway.\n3. Clarity: short sentences, short paragraphs, no jargon without explanation, no filler or cliches (e.g. 'In today's fast-paced world', 'game-changer').\n4. Authenticity: sounds like a real practitioner, first person, no hype, no invented statistics or fake claims.\n5. Length & format: 150-250 words, plain text only (no markdown, asterisks or headings), max 2 emojis.\n6. Engagement: ends with a specific question or call to action.\n7. Hashtags: 3-5 relevant hashtags on the final line.\n8. Correct grammar and spelling.\nOutput ONLY the final post text. Do not include notes, scores, explanations or quotes around it."
+        }
+      },
+      "id": "n4",
+      "name": "Reviewer Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        560,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "cachedResultName": "gpt-4.1-mini",
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "id": "n5",
+      "name": "OpenAI Model (Reviewer)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        560,
+        528
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "PFhRAf83T64rj58y",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "pdineshkumar55@gmail.com",
+        "subject": "=LinkedIn post for approval: {{ $('LinkedIn Topic Form').item.json.Topic }}",
+        "message": "=<p><b>Topic:</b> {{ $('LinkedIn Topic Form').item.json.Topic }}</p><hr><p>{{ $json.output.replace(/\\n/g, '<br>') }}</p><hr><p>Approve to save this post to the Google Sheet, or Reject to discard it.</p>",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "disapproveLabel": "Reject"
+          }
+        },
+        "options": {
+          "limitWaitTime": {
+            "values": {
+              "resumeAmount": 30,
+              "resumeUnit": "minutes"
+            }
+          },
+          "appendAttribution": false
+        }
+      },
+      "id": "n6",
+      "name": "Email for Approval",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        864,
+        304
+      ],
+      "webhookId": "8bbf3420-2d5d-43c9-940b-47cd4540b8f4",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2MFR7JcWSSYLQVsz",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.data.approved }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          }
+        },
+        "options": {}
+      },
+      "id": "n7",
+      "name": "Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1sqiSccfJQM3kGh5vSHb-_MFNp6PDLsNbbKP8OhAl_QU",
+          "mode": "list",
+          "cachedResultName": "LinkedIn Post Approval Log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1sqiSccfJQM3kGh5vSHb-_MFNp6PDLsNbbKP8OhAl_QU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 195874567,
+          "mode": "list",
+          "cachedResultName": "Sheet 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1sqiSccfJQM3kGh5vSHb-_MFNp6PDLsNbbKP8OhAl_QU/edit#gid=195874567"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ $('LinkedIn Topic Form').item.json.submittedAt }}",
+            "Topic": "={{ $('LinkedIn Topic Form').item.json.Topic }}",
+            "Final Post": "={{ $('Reviewer Agent').item.json.output }}",
+            "Status": "={{ $json.data.approved }}",
+            "data": "={{ $('Email for Approval').item.json.data.respondedAt }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Topic",
+              "displayName": "Topic",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Final Post",
+              "displayName": "Final Post",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "data",
+              "displayName": "data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "n8",
+      "name": "Save Approved Post",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1392,
+        208
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "XcrVxY7F0cLGBbP3",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "n9",
+      "name": "Rejected - Discard",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1392,
+        400
+      ],
+      "notes": "Reject = post is dropped. Nothing is written to the sheet; the execution log keeps the record."
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Approved?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Save Approved Post",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Rejected - Discard",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Email for Approval": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Approved?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "LinkedIn Topic Form": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Writer Agent",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "OpenAI Model (Reviewer)": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Reviewer Agent",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "OpenAI Model (Writer)": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Writer Agent",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "Reviewer Agent": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Email for Approval",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Writer Agent": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Reviewer Agent",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timezone": "Asia/Kolkata",
+    "availableInMCP": true
+  },
+  "versionId": "ff4b6d3a-6c69-4250-b79c-c851a9e103f9",
+  "meta": {
+    "instanceId": "4f7ba3e91c23a56f220423a40ea251845f171cdbae9231d26d58fbcb0e3a1c2b"
+  },
+  "nodeGroups": [],
+  "id": "yFnR3DN1Cf154E2O",
+  "tags": []
+}
